@@ -1,0 +1,43 @@
+SUBAGENT-EXAMPLE-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    NOTIFICATION-GROUP, OBJECT-GROUP
+        FROM SNMPv2-CONF
+    DisplayString
+        FROM SNMPv2-TC
+    experimental, OBJECT-TYPE, NOTIFICATION-TYPE, Integer32, MODULE-IDENTITY
+        FROM SNMPv2-SMI
+;
+
+--
+-- top level structure
+--
+subagentExample MODULE-IDENTITY
+    LAST-UPDATED "202504050000Z"
+    ORGANIZATION "Choripan-Systems LLC"
+    CONTACT-INFO "marcelo_mourier@yahoo.com"
+    DESCRIPTION  "Minimalistic MIB for an AgentX example."
+         
+    ::= { experimental 9999 }
+
+myScalars              OBJECT IDENTIFIER ::= { subagentExample  1 }
+
+---
+--- Some Scalars
+---
+myReadOnlyInteger OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "A read-only integer value"
+    ::= { myScalars 1 }
+
+myReadWriteInteger OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "A read-write integer value"
+    DEFVAL		{ 0 }
+    ::= { myScalars 2 }
+
+END
