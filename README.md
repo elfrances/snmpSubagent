@@ -1,6 +1,6 @@
 # snmpSubagent
 
-A minimalistic SNMP subagent that uses the NET-SNMP AgentX API
+A minimalistic SNMP subagent that uses the NET-SNMP AgentX API to implement the SUBAGENT-EXAMPLE-MIB.
 
 # Build
 
