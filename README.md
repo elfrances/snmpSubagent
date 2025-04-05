@@ -4,8 +4,10 @@ A minimalistic SNMP subagent that uses the NET-SNMP AgentX API to implement the 
 
 # Build
 
+To build the binary simply run make:
+
 ```
-gcc -O0 -g3 -Wall -o snmpSubagent main.c -lnetsnmp -lnetsnmpagent
+make
 ```
 
 # Run
