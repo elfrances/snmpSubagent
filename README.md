@@ -10,7 +10,7 @@ gcc -O0 -g3 -Wall -o snmpSubagent main.c -lnetsnmp -lnetsnmpagent
 
 # Run
 
-First make sure your snmpd master agent supports AgentX
+First make sure your snmpd master agent supports AgentX, and that its ro and rw community strings are "public" and "private", respectively.
 
 ```
 sudo ./snmpSubagent 
