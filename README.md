@@ -4,6 +4,12 @@ A minimalistic SNMP subagent that uses the NET-SNMP AgentX API to implement the 
 
 # Build
 
+The program is written in C and uses the NET-SNMP libraries.  On Ubuntu these libraries can be installed as follows:
+
+```
+sudo apt install libsnmp-dev
+```
+
 To build the binary simply run make:
 
 ```
