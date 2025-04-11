@@ -81,22 +81,22 @@ static int hiTempAlarmCb(netsnmp_mib_handler *handler,
     return 0;
 }
 
-static int setOidValue(int oid, int value)
+static int setOidValue(const char *oid, int value)
 {
     int *val = NULL;
 
-    if (oid == 1) {
+    if (strcmp(oid, "ac1Temp") == 0) {
         val = &ac1Temp;
-    } else if (oid == 2) {
+    } else if (strcmp(oid, "ac2Temp") == 0) {
         val = &ac2Temp;
-    } else if (oid == 3) {
+    } else if (strcmp(oid, "ac3Temp") == 0) {
         val = &ac3Temp;
     } else {
         return -1;
     }
 
     if (value != *val) {
-        snmp_log(LOG_INFO, "%s: oid=%d oldValue=%d newValue=%d\n", __func__, oid, *val, value);
+        snmp_log(LOG_INFO, "%s: oid=%s oldValue=%d newValue=%d\n", __func__, oid, *val, value);
         *val = value;   // update the value!
     }
 
@@ -113,11 +113,17 @@ static int readDataValues(const char *dataFile)
         snmp_log(LOG_ERR, "%s: failed to open data file \"%s\"\n", __func__, dataFile);
     }
 
+    // Read one line at at time. Lines that start
+    // with a '#' are comments and are skipped.
     while (fgets(lineBuf, sizeof (lineBuf), fp) != NULL) {
         if (lineBuf[0] != '#') {
-            int oid, value;
-            if (sscanf(lineBuf, "%d,%d", &oid, &value) == 2) {
-                setOidValue(oid, value);
+            char *comma = strchr(lineBuf, ',');
+            if (comma != NULL) {
+                int value;
+                *comma = '\0';
+                if (sscanf((comma + 1), "%d", &value) == 1) {
+                    setOidValue(lineBuf, value);
+                }
             }
         }
     }
@@ -136,7 +142,6 @@ static void *mibUpdateTask(void *arg)
     const struct timespec pollPeriod = { .tv_sec = 1, .tv_nsec = 0 };
 
     while (1) {
-        // Go do the work...
         snmp_log(LOG_INFO, "%s: Updating MIB data...\n", __func__);
 
         if (dataFile != NULL) {

@@ -70,7 +70,10 @@ int main(int argc, char *argv[])
         }
     }
 
-    init_agent(snmpSubagent);
+    if (init_agent(snmpSubagent) != 0) {
+        snmp_log(LOG_ERR, "Subagent initialization failed!\n");
+        return -1;
+    }
 
     mibInit(cmdArgs.dataFile);
 
