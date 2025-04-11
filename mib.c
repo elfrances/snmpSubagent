@@ -8,38 +8,122 @@
 
 // SUBAGENT-EXAMPLE-MIB Object Handlers
 
-// myReadOnlyInteger OBJECT-TYPE
-//     SYNTAX      Integer32 (0..2147483647)
+// ac1Temp OBJECT-TYPE
+//     SYNTAX      Integer32
 //     MAX-ACCESS  read-only
 //     STATUS      current
-//     DESCRIPTION "A read-only integer value"
-//     ::= { myScalars 1 }
-static oid myReadOnlyIntegerOid[] = { 1, 3, 6, 1, 3, 9999, 1, 1, 0 };
-static int myReadOnlyInteger = 3662;
-static int myReadOnlyIntegerCb(netsnmp_mib_handler *handler,
+//     DESCRIPTION "The current value (in degrees Celsius) of the A/C
+//                  Unit #1 temperature sensor."
+//     ::= { subagentExampleMIB 1 }
+static oid ac1TempOid[] = { 1, 3, 6, 1, 3, 9999, 1, 0 };
+static int ac1Temp = 0;
+static int ac1TempCb(netsnmp_mib_handler *handler,
                      netsnmp_handler_registration *reginfo,
                      netsnmp_agent_request_info *reqinfo,
                      netsnmp_request_info *requests)
 {
-    snmp_log(LOG_INFO, "myReadOnlyIntegerCb: \n");
+    snmp_log(LOG_INFO, "%s: \n", __func__);
     return 0;
 }
 
-// myReadWriteInteger OBJECT-TYPE
-//     SYNTAX      Integer32 (0..2147483647)
-//     MAX-ACCESS  read-write
+// ac2Temp OBJECT-TYPE
+//     SYNTAX      Integer32
+//     MAX-ACCESS  read-only
 //     STATUS      current
-//     DESCRIPTION "A read-write integer value"
-//     DEFVAL       { 0 }
-//     ::= { myScalars 2 }
-static oid myReadWriteIntegerOid[] = { 1, 3, 6, 1, 3, 9999, 1, 2, 0 };
-static long myReadWriteInteger = 0;
-static int myReadWriteIntegerCb(netsnmp_mib_handler *handler,
+//     DESCRIPTION "The current value (in degrees Celsius) of the A/C
+//                  Unit #2 temperature sensor."
+//     ::= { subagentExampleMIB 2 }
+static oid ac2TempOid[] = { 1, 3, 6, 1, 3, 9999, 2, 0 };
+static int ac2Temp = 0;
+static int ac2TempCb(netsnmp_mib_handler *handler,
                      netsnmp_handler_registration *reginfo,
                      netsnmp_agent_request_info *reqinfo,
                      netsnmp_request_info *requests)
 {
-    snmp_log(LOG_INFO, "myReadWriteIntegerCb: \n");
+    snmp_log(LOG_INFO, "%s: \n", __func__);
+    return 0;
+}
+
+// ac3Temp OBJECT-TYPE
+//     SYNTAX      Integer32
+//     MAX-ACCESS  read-only
+//     STATUS      current
+//     DESCRIPTION "The current value (in degrees Celsius) of the A/C
+//                  Unit #3 temperature sensor."
+//     ::= { subagentExampleMIB 3 }
+static oid ac3TempOid[] = { 1, 3, 6, 1, 3, 9999, 3, 0 };
+static int ac3Temp = 0;
+static int ac3TempCb(netsnmp_mib_handler *handler,
+                     netsnmp_handler_registration *reginfo,
+                     netsnmp_agent_request_info *reqinfo,
+                     netsnmp_request_info *requests)
+{
+    snmp_log(LOG_INFO, "%s: \n", __func__);
+    return 0;
+}
+
+// hiTempAlarm OBJECT-TYPE
+//     SYNTAX      Integer32
+//     MAX-ACCESS  read-write
+//     STATUS      current
+//     DESCRIPTION "The temperature value (in degrees Celsius) to trigger
+//                  an A/C Unit High Temperature alarm."
+//     DEFVAL      { 30 }
+//     ::= { subagentExampleMIB 4 }
+static oid hiTempAlarmOid[] = { 1, 3, 6, 1, 3, 9999, 4, 0 };
+static int hiTempAlarm = 30;
+static int hiTempAlarmCb(netsnmp_mib_handler *handler,
+                     netsnmp_handler_registration *reginfo,
+                     netsnmp_agent_request_info *reqinfo,
+                     netsnmp_request_info *requests)
+{
+    snmp_log(LOG_INFO, "%s: \n", __func__);
+    return 0;
+}
+
+static int setOidValue(int oid, int value)
+{
+    int *val = NULL;
+
+    if (oid == 1) {
+        val = &ac1Temp;
+    } else if (oid == 2) {
+        val = &ac2Temp;
+    } else if (oid == 3) {
+        val = &ac3Temp;
+    } else {
+        return -1;
+    }
+
+    if (value != *val) {
+        snmp_log(LOG_INFO, "%s: oid=%d oldValue=%d newValue=%d\n", __func__, oid, *val, value);
+        *val = value;   // update the value!
+    }
+
+    return 0;
+}
+
+// Read the latest MIB object values from the data file
+static int readDataValues(const char *dataFile)
+{
+    FILE *fp;
+    char lineBuf[256];
+
+    if ((fp = fopen(dataFile, "r")) == NULL) {
+        snmp_log(LOG_ERR, "%s: failed to open data file \"%s\"\n", __func__, dataFile);
+    }
+
+    while (fgets(lineBuf, sizeof (lineBuf), fp) != NULL) {
+        if (lineBuf[0] != '#') {
+            int oid, value;
+            if (sscanf(lineBuf, "%d,%d", &oid, &value) == 2) {
+                setOidValue(oid, value);
+            }
+        }
+    }
+
+    fclose(fp);
+
     return 0;
 }
 
@@ -48,11 +132,16 @@ static int myReadWriteIntegerCb(netsnmp_mib_handler *handler,
 // sensor.
 static void *mibUpdateTask(void *arg)
 {
+    const char *dataFile = arg;
     const struct timespec pollPeriod = { .tv_sec = 1, .tv_nsec = 0 };
 
     while (1) {
         // Go do the work...
         snmp_log(LOG_INFO, "%s: Updating MIB data...\n", __func__);
+
+        if (dataFile != NULL) {
+            readDataValues(dataFile);
+        }
 
         // Sleep until the next poll period
         nanosleep(&pollPeriod, NULL);
@@ -61,28 +150,44 @@ static void *mibUpdateTask(void *arg)
     return NULL;
 }
 
-int mibInit(void)
+int mibInit(const char *dataFile)
 {
     pthread_t thread;
 
-    // Register myReadOnlyInteger handler
-    if (netsnmp_register_read_only_int_instance("myReadOnlyInteger",
-                                                myReadOnlyIntegerOid, OID_LENGTH(myReadOnlyIntegerOid),
-                                                &myReadOnlyInteger, myReadOnlyIntegerCb) != 0) {
-        snmp_log(LOG_ERR, "Failed to register myReadOnlyInteger!\n");
+    // Register ac1Temp handler
+    if (netsnmp_register_read_only_int_instance("ac1Temp",
+                                                ac1TempOid, OID_LENGTH(ac1TempOid),
+                                                &ac1Temp, ac1TempCb) != 0) {
+        snmp_log(LOG_ERR, "Failed to register ac1Temp!\n");
         return -1;
     }
 
-    // Register myReadWriteInteger handler
-    if (netsnmp_register_long_instance("myReadWriteInteger",
-                                       myReadWriteIntegerOid, OID_LENGTH(myReadWriteIntegerOid),
-                                       &myReadWriteInteger, myReadWriteIntegerCb) != 0) {
-        snmp_log(LOG_ERR, "Failed to register myReadWriteInteger!\n");
+    // Register ac2Temp handler
+    if (netsnmp_register_read_only_int_instance("ac2Temp",
+                                                ac2TempOid, OID_LENGTH(ac2TempOid),
+                                                &ac2Temp, ac2TempCb) != 0) {
+        snmp_log(LOG_ERR, "Failed to register ac2Temp!\n");
+        return -1;
+    }
+
+    // Register ac3Temp handler
+    if (netsnmp_register_read_only_int_instance("ac3Temp",
+                                                ac3TempOid, OID_LENGTH(ac3TempOid),
+                                                &ac3Temp, ac3TempCb) != 0) {
+        snmp_log(LOG_ERR, "Failed to register ac3Temp!\n");
+        return -1;
+    }
+
+    // Register hiTempAlarm handler
+    if (netsnmp_register_int_instance("hiTempAlarm",
+                                       hiTempAlarmOid, OID_LENGTH(hiTempAlarmOid),
+                                       &hiTempAlarm, hiTempAlarmCb) != 0) {
+        snmp_log(LOG_ERR, "Failed to register hiTempAlarm!\n");
         return -1;
     }
 
     // Start the MIB update task
-    if (pthread_create(&thread, NULL, mibUpdateTask, NULL)) {
+    if (pthread_create(&thread, NULL, mibUpdateTask, (void *) dataFile)) {
         snmp_log(LOG_ERR, "Failed to create MIB update task!\n");
         return -1;
     }

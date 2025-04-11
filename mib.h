@@ -2,7 +2,7 @@
 
 __BEGIN_DECLS
 
-extern int mibInit(void);
+extern int mibInit(const char *dataFile);
 
 __END_DECLS
 

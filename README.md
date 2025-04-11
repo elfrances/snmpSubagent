@@ -18,7 +18,17 @@ make
 
 # Run
 
-First make sure your snmpd master agent supports AgentX, and that its ro and rw community strings are "public" and "private", respectively.
+First make sure your snmpd master agent supports AgentX, and that its ro and rw community strings are "public" and "private", respectively, as shown below:
+
+```
+rocommunity  public 
+rwcommunity  private
+```
+
+Copy the SUBAGENT-EXAMPLE-MIB file to the default MIB's folder, usually /usr/share/snmp/mibs.
+
+Start the snmpSubagent:
+
 
 ```
 sudo ./snmpSubagent 
@@ -39,32 +49,39 @@ mibUpdateTask: Updating MIB data...
 
 # Test
 
-Read the read-only Interger32 MIB variable "myReadOnlyInteger":
+Read the read-only Interger32 MIB variable "ac1Temp":
 
 ```
-snmpget -v 2c -c public localhost -M+. -mSUBAGENT-EXAMPLE-MIB myReadOnlyInteger.0
-SUBAGENT-EXAMPLE-MIB::myReadOnlyInteger.0 = INTEGER: 3662
+snmpget -v 2c -c public localhost SUBAGENT-EXAMPLE-MIB::ac1Temp.0
+SUBAGENT-EXAMPLE-MIB::ac1Temp.0 = INTEGER: 21
 ```
 
-Read the read-write Interger32 MIB variable "myReadWriteInteger":
+Read the read-only Interger32 MIB variable "ac2Temp":
 
 ```
-snmpget -v 2c -c public localhost -M+. -mSUBAGENT-EXAMPLE-MIB myReadWriteInteger.0
-SUBAGENT-EXAMPLE-MIB::myReadWriteInteger.0 = INTEGER: 0
+snmpget -v 2c -c public localhost SUBAGENT-EXAMPLE-MIB::ac2Temp.0
+SUBAGENT-EXAMPLE-MIB::ac2Temp.0 = INTEGER: 22
 ```
 
-Write the value 1234 to the read-write Interger32 MIB variable "myReadWriteInteger":
+Read the read-write Interger32 MIB variable "hiTempAlarm":
 
 ```
-snmpset -v 2c -c private localhost .1.3.6.1.3.9999.1.2.0 i 1234
-SNMPv2-SMI::experimental.9999.1.2.0 = INTEGER: 1234
+snmpget -v 2c -c public localhost SUBAGENT-EXAMPLE-MIB::hiTempAlarm.0
+SUBAGENT-EXAMPLE-MIB::hiTempAlarm.0 = INTEGER: 30
 ```
 
-Read the read-write Interger32 MIB variable "myReadWriteInteger" to verify the value written:
+Write the value 27 to the read-write Interger32 MIB variable "hiTempAlarm":
 
 ```
-snmpget -v 2c -c public localhost -M+. -mSUBAGENT-EXAMPLE-MIB myReadWriteInteger.0
-SUBAGENT-EXAMPLE-MIB::myReadWriteInteger.0 = INTEGER: 1234
+snmpset -v 2c -c private localhost SUBAGENT-EXAMPLE-MIB::hiTempAlarm.0 i 27
+SUBAGENT-EXAMPLE-MIB::hiTempAlarm.0 = INTEGER: 27
+```
+
+Read the read-write Interger32 MIB variable "hiTempAlarm" to verify the value written:
+
+```
+snmpget -v 2c -c public localhost SUBAGENT-EXAMPLE-MIB::hiTempAlarm.0
+SUBAGENT-EXAMPLE-MIB::hiTempAlarm.0 = INTEGER: 1234
 ```
 
 
