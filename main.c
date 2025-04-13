@@ -19,6 +19,23 @@ typedef struct CmdArgs {
     bool syslog;
 } CmdArgs;
 
+static const char *help =
+        "SYNTAX:\n"
+        "    snmpSubagent [OPTIONS]\n"
+        "\n"
+        "OPTIONS:\n"
+        "    --daemon\n"
+        "        Run in the background.\n"
+        "    --data-file <path>\n"
+        "        Path to the CSV file used to update the value of the\n"
+        "        SUBAGENT-EXAMPLE-MIB objects.\n"
+        "    --help\n"
+        "        Show this help and exit.\n"
+        "    --syslog\n"
+        "        Use syslog for logging.\n"
+        "\n";
+
+
 static int parseCmdArgs(int argc, char *argv[], CmdArgs *cmdArgs)
 {
     int n, numArgs;
@@ -34,6 +51,9 @@ static int parseCmdArgs(int argc, char *argv[], CmdArgs *cmdArgs)
         } else if (strcmp(arg, "--data-file") == 0) {
             val = argv[++n];
             cmdArgs->dataFile = strdup(val);
+        } else if (strcmp(arg, "--help") == 0) {
+            printf("%s\n", help);
+            exit(0);
         } else if (strcmp(arg, "--syslog") == 0) {
             cmdArgs->syslog = true;
         } else {

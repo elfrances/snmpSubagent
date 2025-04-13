@@ -1,0 +1,12 @@
+[Unit]
+Description=SNMP AgentX Subagent for the SUBAGENT-EXAMPLE-MIB.
+After=snmpd.service
+
+[Service]
+Type=simple
+ExecStart=/home/mmourier/GitHub/snmpSubagent/snmpSubagent --data-file /home/mmourier/GitHub/snmpSubagent/dataFile.csv
+ExecReload=/bin/kill -HUP $MAINPID
+
+[Install]
+WantedBy=multi-user.target
+

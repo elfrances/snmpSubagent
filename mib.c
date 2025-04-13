@@ -95,7 +95,7 @@ static int setOidValue(const char *oid, int value)
         return -1;
     }
 
-    if (value != *val) {
+    if ((val != NULL) && (value != *val)) {
         snmp_log(LOG_INFO, "%s: oid=%s oldValue=%d newValue=%d\n", __func__, oid, *val, value);
         *val = value;   // update the value!
     }
@@ -113,7 +113,7 @@ static int readDataValues(const char *dataFile)
         snmp_log(LOG_ERR, "%s: failed to open data file \"%s\"\n", __func__, dataFile);
     }
 
-    // Read one line at at time. Lines that start
+    // Read one line at a time. Lines that start
     // with a '#' are comments and are skipped.
     while (fgets(lineBuf, sizeof (lineBuf), fp) != NULL) {
         if (lineBuf[0] != '#') {
@@ -142,9 +142,13 @@ static void *mibUpdateTask(void *arg)
     const struct timespec pollPeriod = { .tv_sec = 1, .tv_nsec = 0 };
 
     while (1) {
-        snmp_log(LOG_INFO, "%s: Updating MIB data...\n", __func__);
-
         if (dataFile != NULL) {
+            struct timeval now;
+            struct tm brkDwnTime;
+            static char tsBuf[32];  // YYYY-MM-DDTHH:MM:SS
+            gettimeofday(&now, NULL);
+            strftime(tsBuf, sizeof (tsBuf), "%Y-%m-%d %H:%M:%S", gmtime_r(&now.tv_sec, &brkDwnTime));    // %H means 24-hour time
+            snmp_log(LOG_INFO, "%s: Updating MIB data from %s at %s ...\n", __func__, dataFile, tsBuf);
             readDataValues(dataFile);
         }
 
