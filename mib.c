@@ -110,11 +110,13 @@ static int sendHiTempAlarmTrap(const char *varOid)
         return -1;
     }
 
+    // Add snmpTrapOID = acHiTempAlarm
     snmp_varlist_add_variable(&varList,
             snmpTrapOid, OID_LENGTH(snmpTrapOid),
             ASN_OBJECT_ID,
             acHiTempAlarmOid, OID_LENGTH(acHiTempAlarmOid) * sizeof (oid));
 
+    // Add acHiTempUnit = acUnit
     snmp_varlist_add_variable(&varList,
             acHiTempUnitOid, OID_LENGTH(acHiTempUnitOid),
             ASN_INTEGER,
