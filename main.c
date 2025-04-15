@@ -87,7 +87,10 @@ int main(int argc, char *argv[])
     else
         snmp_enable_stderrlog();
 
-    netsnmp_ds_set_boolean(NETSNMP_DS_APPLICATION_ID, NETSNMP_DS_AGENT_ROLE, 1);
+    if (netsnmp_ds_set_boolean(NETSNMP_DS_APPLICATION_ID, NETSNMP_DS_AGENT_ROLE, 1) != SNMPERR_SUCCESS) {
+        snmp_log(LOG_ERR, "Can't set NETSNMP_DS_AGENT_ROLE!\n");
+        return -1;
+    }
 
     if (cmdArgs.daemon) {
         // Run in the background
@@ -105,6 +108,12 @@ int main(int argc, char *argv[])
     mibInit(cmdArgs.dataFile);
 
     init_snmp(snmpSubagent);
+
+    // Change the default 15 sec AgentX reconnect period to
+    // a faster 5 sec period ...
+    if (netsnmp_ds_set_int(NETSNMP_DS_APPLICATION_ID, NETSNMP_DS_AGENT_AGENTX_PING_INTERVAL, 5) != SNMPERR_SUCCESS) {
+        snmp_log(LOG_WARNING, "Can't set AGENTX_PING_INTERVAL!\n");
+    }
 
     // Catch USR1 signal, used to indicate a change
     // in the snmpd.conf file...
