@@ -1,6 +1,7 @@
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
 #include <net-snmp/agent/net-snmp-agent-includes.h>
+#include <net-snmp/agent/agent_trap.h>
 
 #include <pthread.h>
 
@@ -15,7 +16,7 @@
 //     DESCRIPTION "The current value (in degrees Celsius) of the A/C
 //                  Unit #1 temperature sensor."
 //     ::= { subagentExampleMIB 1 }
-static oid ac1TempOid[] = { 1, 3, 6, 1, 3, 9999, 1, 0 };
+static const oid ac1TempOid[] = { 1, 3, 6, 1, 3, 9999, 1, 0 };
 static int ac1Temp = 0;
 static int ac1TempCb(netsnmp_mib_handler *handler,
                      netsnmp_handler_registration *reginfo,
@@ -23,7 +24,7 @@ static int ac1TempCb(netsnmp_mib_handler *handler,
                      netsnmp_request_info *requests)
 {
     snmp_log(LOG_INFO, "%s: \n", __func__);
-    return 0;
+    return SNMP_ERR_NOERROR;
 }
 
 // ac2Temp OBJECT-TYPE
@@ -33,7 +34,7 @@ static int ac1TempCb(netsnmp_mib_handler *handler,
 //     DESCRIPTION "The current value (in degrees Celsius) of the A/C
 //                  Unit #2 temperature sensor."
 //     ::= { subagentExampleMIB 2 }
-static oid ac2TempOid[] = { 1, 3, 6, 1, 3, 9999, 2, 0 };
+static const oid ac2TempOid[] = { 1, 3, 6, 1, 3, 9999, 2, 0 };
 static int ac2Temp = 0;
 static int ac2TempCb(netsnmp_mib_handler *handler,
                      netsnmp_handler_registration *reginfo,
@@ -41,7 +42,7 @@ static int ac2TempCb(netsnmp_mib_handler *handler,
                      netsnmp_request_info *requests)
 {
     snmp_log(LOG_INFO, "%s: \n", __func__);
-    return 0;
+    return SNMP_ERR_NOERROR;
 }
 
 // ac3Temp OBJECT-TYPE
@@ -51,7 +52,7 @@ static int ac2TempCb(netsnmp_mib_handler *handler,
 //     DESCRIPTION "The current value (in degrees Celsius) of the A/C
 //                  Unit #3 temperature sensor."
 //     ::= { subagentExampleMIB 3 }
-static oid ac3TempOid[] = { 1, 3, 6, 1, 3, 9999, 3, 0 };
+static const oid ac3TempOid[] = { 1, 3, 6, 1, 3, 9999, 3, 0 };
 static int ac3Temp = 0;
 static int ac3TempCb(netsnmp_mib_handler *handler,
                      netsnmp_handler_registration *reginfo,
@@ -59,25 +60,60 @@ static int ac3TempCb(netsnmp_mib_handler *handler,
                      netsnmp_request_info *requests)
 {
     snmp_log(LOG_INFO, "%s: \n", __func__);
-    return 0;
+    return SNMP_ERR_NOERROR;
 }
 
-// hiTempAlarm OBJECT-TYPE
+// hiTempThreshold OBJECT-TYPE
 //     SYNTAX      Integer32
 //     MAX-ACCESS  read-write
 //     STATUS      current
-//     DESCRIPTION "The temperature value (in degrees Celsius) to trigger
-//                  an A/C Unit High Temperature alarm."
+//     DESCRIPTION "The temperature value (in degrees Celsius) above
+//                  which to raise an A/C Unit High Temperature alarm."
 //     DEFVAL      { 30 }
 //     ::= { subagentExampleMIB 4 }
-static oid hiTempAlarmOid[] = { 1, 3, 6, 1, 3, 9999, 4, 0 };
-static int hiTempAlarm = 30;
-static int hiTempAlarmCb(netsnmp_mib_handler *handler,
+static const oid hiTempThresholdOid[] = { 1, 3, 6, 1, 3, 9999, 4, 0 };
+static int hiTempThreshold = 30;
+static int hiTempThresholdCb(netsnmp_mib_handler *handler,
                      netsnmp_handler_registration *reginfo,
                      netsnmp_agent_request_info *reqinfo,
                      netsnmp_request_info *requests)
 {
     snmp_log(LOG_INFO, "%s: \n", __func__);
+    return SNMP_ERR_NOERROR;
+}
+
+static const oid ac1HiTempAlarmOid[] = { 1, 3, 6, 1, 3, 9999, 5 };
+static const oid ac2HiTempAlarmOid[] = { 1, 3, 6, 1, 3, 9999, 6 };
+static const oid ac3HiTempAlarmOid[] = { 1, 3, 6, 1, 3, 9999, 7 };
+
+extern const oid snmptrap_oid[];
+extern const size_t snmptrap_oid_len;
+
+static int sendHiTempAlarmTrap(const char *varOid)
+{
+    netsnmp_variable_list *varList = NULL;
+    const oid *trapOid = NULL;
+
+
+    if (strcmp(varOid, "ac1Temp") == 0) {
+        trapOid = ac1HiTempAlarmOid;
+    } else if (strcmp(varOid, "ac2Temp") == 0) {
+        trapOid = ac2HiTempAlarmOid;
+    } else if (strcmp(varOid, "ac3Temp") == 0) {
+        trapOid = ac3HiTempAlarmOid;
+    } else {
+        return -1;
+    }
+
+    snmp_varlist_add_variable(&varList,
+            snmptrap_oid, snmptrap_oid_len,
+            ASN_OBJECT_ID,
+            trapOid, OID_LENGTH(trapOid));
+
+    send_v2trap(varList );
+
+    snmp_free_varbind(varList );
+
     return 0;
 }
 
@@ -97,7 +133,15 @@ static int setOidValue(const char *oid, int value)
 
     if ((val != NULL) && (value != *val)) {
         snmp_log(LOG_INFO, "%s: oid=%s oldValue=%d newValue=%d\n", __func__, oid, *val, value);
-        *val = value;   // update the value!
+
+        // Update the corresponding MIB variable
+        *val = value;
+
+        // Need to send a hiTempAlarm trap?
+        if (value > hiTempThreshold) {
+            snmp_log(LOG_INFO, "%s: oid=%s newValue=%d is greater than hiTempThreshold=%d !\n", __func__, oid, value, hiTempThreshold);
+            sendHiTempAlarmTrap(oid);
+        }
     }
 
     return 0;
@@ -188,12 +232,14 @@ int mibInit(const char *dataFile)
     }
 
     // Register hiTempAlarm handler
-    if (netsnmp_register_int_instance("hiTempAlarm",
-                                       hiTempAlarmOid, OID_LENGTH(hiTempAlarmOid),
-                                       &hiTempAlarm, hiTempAlarmCb) != 0) {
-        snmp_log(LOG_ERR, "Failed to register hiTempAlarm!\n");
+    if (netsnmp_register_int_instance("hiTempThreshold",
+                                       hiTempThresholdOid, OID_LENGTH(hiTempThresholdOid),
+                                       &hiTempThreshold, hiTempThresholdCb) != 0) {
+        snmp_log(LOG_ERR, "Failed to register hiTempThreshold!\n");
         return -1;
     }
+
+    init_traps();
 
     // Start the MIB update task
     if (pthread_create(&thread, NULL, mibUpdateTask, (void *) dataFile)) {
