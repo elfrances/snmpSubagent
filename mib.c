@@ -82,35 +82,45 @@ static int hiTempThresholdCb(netsnmp_mib_handler *handler,
     return SNMP_ERR_NOERROR;
 }
 
-static const oid ac1HiTempAlarmOid[] = { 1, 3, 6, 1, 3, 9999, 5 };
-static const oid ac2HiTempAlarmOid[] = { 1, 3, 6, 1, 3, 9999, 6 };
-static const oid ac3HiTempAlarmOid[] = { 1, 3, 6, 1, 3, 9999, 7 };
+// acHiTempUnit OBJECT-TYPE
+//     SYNTAX      Integer32
+//     MAX-ACCESS  accessible-for-notify
+//     STATUS      current
+//     DESCRIPTION "The A/C Unit thar raised a High Temperature alarm."
+//     ::= { subagentExampleMIB 5 }
+static const oid acHiTempUnitOid[] = { 1, 3, 6, 1, 3, 9999, 5 };
 
-extern const oid snmptrap_oid[];
-extern const size_t snmptrap_oid_len;
+// acHiTempAlarm NOTIFICATION-TYPE
+//     OBJECTS     { acHiTempUnit }
+//     STATUS      current
+//     DESCRIPTION "Trap to notify a High Temperature alarm on one of
+//                  the A/C Units."
+//     ::= { subagentExampleMIB 6 }
+static const oid acHiTempAlarmOid[] = { 1, 3, 6, 1, 3, 9999, 6 };
+
+static const oid snmpTrapOid[] = { 1, 3, 6, 1, 6, 3, 1, 1, 4, 1, 0 };
 
 static int sendHiTempAlarmTrap(const char *varOid)
 {
     netsnmp_variable_list *varList = NULL;
-    const oid *trapOid = NULL;
+    int acUnit = 0;
 
-
-    if (strcmp(varOid, "ac1Temp") == 0) {
-        trapOid = ac1HiTempAlarmOid;
-    } else if (strcmp(varOid, "ac2Temp") == 0) {
-        trapOid = ac2HiTempAlarmOid;
-    } else if (strcmp(varOid, "ac3Temp") == 0) {
-        trapOid = ac3HiTempAlarmOid;
-    } else {
+    if (sscanf(varOid, "ac%dTemp", &acUnit) != 1) {
+        snmp_log(LOG_ERR, "%s: Invalid A/C unit: %s\n", __func__, varOid);
         return -1;
     }
 
     snmp_varlist_add_variable(&varList,
-            snmptrap_oid, snmptrap_oid_len,
+            snmpTrapOid, OID_LENGTH(snmpTrapOid),
             ASN_OBJECT_ID,
-            trapOid, OID_LENGTH(trapOid));
+            acHiTempAlarmOid, OID_LENGTH(acHiTempAlarmOid) * sizeof (oid));
 
-    send_v2trap(varList );
+    snmp_varlist_add_variable(&varList,
+            acHiTempUnitOid, OID_LENGTH(acHiTempUnitOid),
+            ASN_INTEGER,
+            &acUnit, sizeof (acUnit));
+
+    send_v2trap(varList);
 
     snmp_free_varbind(varList );
 
@@ -238,8 +248,6 @@ int mibInit(const char *dataFile)
         snmp_log(LOG_ERR, "Failed to register hiTempThreshold!\n");
         return -1;
     }
-
-    init_traps();
 
     // Start the MIB update task
     if (pthread_create(&thread, NULL, mibUpdateTask, (void *) dataFile)) {

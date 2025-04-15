@@ -50,22 +50,18 @@ hiTempThreshold OBJECT-TYPE
     DEFVAL		{ 30 }
     ::= { subagentExampleMIB 4 }
     
-ac1HiTempAlarm NOTIFICATION-TYPE
-    STATUS		current
-    DESCRIPTION	"Trap to notify a High Temperature alarm on the A/C
-	             Unit #1."
+acHiTempUnit OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION "The A/C Unit thar raised a High Temperature alarm."
     ::= { subagentExampleMIB 5 }
-
-ac2HiTempAlarm NOTIFICATION-TYPE
-    STATUS		current
-    DESCRIPTION	"Trap to notify a High Temperature alarm on the A/C
-	             Unit #2."
+    
+acHiTempAlarm NOTIFICATION-TYPE
+    OBJECTS     { acHiTempUnit }
+    STATUS      current
+    DESCRIPTION	"Trap to notify a High Temperature alarm on one of
+                 the A/C Units."
     ::= { subagentExampleMIB 6 }
-
-ac3HiTempAlarm NOTIFICATION-TYPE
-    STATUS		current
-    DESCRIPTION	"Trap to notify a High Temperature alarm on the A/C
-	             Unit #3."
-    ::= { subagentExampleMIB 7 }
 
 END
