@@ -6,11 +6,18 @@
 
 #include "mib.h"
 
-static int keepRunning = 0;
+static bool keepRunning = true;
+
+static void sigUsr1Handler(int a)
+{
+    // Need to update snmpd.conf
+    snmpdConfigChange = true;
+}
 
 static void stopSubagent(int a)
 {
-    keepRunning = 0;
+    // Terminate the main work loop...
+    keepRunning = false;
 }
 
 typedef struct CmdArgs {
@@ -99,6 +106,10 @@ int main(int argc, char *argv[])
 
     init_snmp(snmpSubagent);
 
+    // Catch USR1 signal, used to indicate a change
+    // in the snmpd.conf file...
+    signal(SIGUSR1, sigUsr1Handler);
+
     // Catch TERMINATE and INTERRUPR signals, used
     // to gracefully exit the snmpSubagent...
     signal(SIGTERM, stopSubagent);
@@ -107,7 +118,6 @@ int main(int argc, char *argv[])
     snmp_log(LOG_INFO, "%s running...\n", snmpSubagent);
 
     // Main work loop...
-    keepRunning = 1;
     while (keepRunning) {
         agent_check_and_process(1);
     }

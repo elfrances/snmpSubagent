@@ -3,7 +3,10 @@
 #include <net-snmp/agent/net-snmp-agent-includes.h>
 #include <net-snmp/agent/agent_trap.h>
 
+#include <errno.h>
 #include <pthread.h>
+#include <stdbool.h>
+#include <stdlib.h>
 
 #include "mib.h"
 
@@ -98,11 +101,10 @@ static const oid acHiTempUnitOid[] = { 1, 3, 6, 1, 3, 9999, 5 };
 //     ::= { subagentExampleMIB 6 }
 static const oid acHiTempAlarmOid[] = { 1, 3, 6, 1, 3, 9999, 6 };
 
-static const oid snmpTrapOid[] = { 1, 3, 6, 1, 6, 3, 1, 1, 4, 1, 0 };
-
 static int sendHiTempAlarmTrap(const char *varOid)
 {
     netsnmp_variable_list *varList = NULL;
+    const oid snmpTrapOid[] = { 1, 3, 6, 1, 6, 3, 1, 1, 4, 1, 0 };
     int acUnit = 0;
 
     if (sscanf(varOid, "ac%dTemp", &acUnit) != 1) {
@@ -129,28 +131,50 @@ static int sendHiTempAlarmTrap(const char *varOid)
     return 0;
 }
 
+bool snmpdConfigChange = false;
+
+static int procConfigChange(void)
+{
+    snmp_log(LOG_INFO, "%s: Updating snmpd.conf and restarting snmpd service ...\n", __func__);
+
+    snmpdConfigChange = false;
+
+    if (system("systemctl restart snmpd") == -1) {
+        int errNo = errno;
+        snmp_log(LOG_ERR, "%s: Failed to restart snmpd: %s (%d)\n", __func__, strerror(errNo), errNo);
+
+    }
+
+    return 0;
+}
+
 static int setOidValue(const char *oid, int value)
 {
-    int *val = NULL;
+    int *var = NULL;
+    bool acTemp = false;
 
     if (strcmp(oid, "ac1Temp") == 0) {
-        val = &ac1Temp;
+        var = &ac1Temp;
+        acTemp = true;
     } else if (strcmp(oid, "ac2Temp") == 0) {
-        val = &ac2Temp;
+        var = &ac2Temp;
+        acTemp = true;
     } else if (strcmp(oid, "ac3Temp") == 0) {
-        val = &ac3Temp;
+        var = &ac3Temp;
+        acTemp = true;
     } else {
         return -1;
     }
 
-    if ((val != NULL) && (value != *val)) {
-        snmp_log(LOG_INFO, "%s: oid=%s oldValue=%d newValue=%d\n", __func__, oid, *val, value);
+    if ((var != NULL) && (value != *var)) {
+        snmp_log(LOG_INFO, "%s: oid=%s oldValue=%d newValue=%d\n", __func__, oid, *var, value);
 
         // Update the corresponding MIB variable
-        *val = value;
+        *var = value;
 
-        // Need to send a hiTempAlarm trap?
-        if (value > hiTempThreshold) {
+        // If this is an ac1Temp-ac3Temp object, do we
+        // need to send a hiTempAlarm trap?
+        if (acTemp && (value > hiTempThreshold)) {
             snmp_log(LOG_INFO, "%s: oid=%s newValue=%d is greater than hiTempThreshold=%d !\n", __func__, oid, value, hiTempThreshold);
             sendHiTempAlarmTrap(oid);
         }
@@ -206,6 +230,11 @@ static void *mibUpdateTask(void *arg)
             strftime(tsBuf, sizeof (tsBuf), "%Y-%m-%d %H:%M:%S", gmtime_r(&now.tv_sec, &brkDwnTime));    // %H means 24-hour time
             snmp_log(LOG_INFO, "%s: Updating MIB data from %s at %s ...\n", __func__, dataFile, tsBuf);
             readDataValues(dataFile);
+
+            // Config change?
+            if (snmpdConfigChange) {
+                procConfigChange();
+            }
         }
 
         // Sleep until the next poll period
