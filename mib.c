@@ -132,32 +132,78 @@ static int sendHiTempAlarmTrap(const char *varOid)
 }
 
 bool snmpdConfigChange = false;
-static int snmpdConfigChangeCount = 0;
 
-static int procConfigChange(void)
+static int setConfigValue(const char *tag, const char *val, FILE *wrFp)
 {
-    int id = ++snmpdConfigChangeCount % 2;
-    char command[256];
+    if (strcmp(tag, "agentAddress") == 0) {
+        // TODO: validate the syntax of the value string
+        fprintf(wrFp, "agentaddress %s\n", val);
+    } else if (strcmp(tag, "readOnlyCommunity") == 0) {
+        fprintf(wrFp, "rocommunity %s\n", val);
+    } else if (strcmp(tag, "readWriteCommunity") == 0) {
+        fprintf(wrFp, "rwcommunity %s\n", val);
+    } else if (strcmp(tag, "trapReceiver") == 0) {
+        // TODO: validate the syntax of the value string
+        fprintf(wrFp, "trap2sink %s\n", val);
+    } else if (strcmp(tag, "sysContact") == 0) {
+        fprintf(wrFp, "sysContact %s\n", val);
+    } else if (strcmp(tag, "sysLocation") == 0) {
+        fprintf(wrFp, "sysLocation %s\n", val);
+    } else {
+        snmp_log(LOG_WARNING, "%s: unsupported config tag \"%s\"\n", __func__, tag);
+    }
 
-    snmp_log(LOG_INFO, "%s: Updating snmpd.conf and restarting snmpd service ...\n", __func__);
+    return 0;
+}
+
+static int procConfigFile(const char *configFile)
+{
+    FILE *rdFp;
+    FILE *wrFp;
+    char strBuf[256];
 
     snmpdConfigChange = false;
 
-    // Copy the template file "snmpd.conf-N" to the "snmpd.conf"
-    // file used by "snmpd"
-    snprintf(command, sizeof (command), "cp -f /etc/snmp/snmpd.conf-%d /etc/snmp/snmpd.conf", id);
-    if (system(command) == -1) {
-        int errNo = errno;
-        snmp_log(LOG_ERR, "%s: Failed to exec command \"%s\": %s (%d)\n", __func__, command, strerror(errNo), errNo);
+    // Open the configFile in read-only mode
+    if ((rdFp = fopen(configFile, "r")) == NULL) {
+        snmp_log(LOG_ERR, "%s: failed to open config file \"%s\"\n", __func__, configFile);
         return -1;
     }
 
+    // Open the snmpd.conf file in read-write mode
+    if ((wrFp = fopen("/etc/snmp/snmpd.conf", "w+")) == NULL) {
+        snmp_log(LOG_ERR, "%s: failed to open snmpd.conf file\n", __func__);
+        return -1;
+    }
+
+    // AgentX support is always enabled
+    fprintf(wrFp, "master agentx\n");
+
+    // Read one line at a time. Lines that start
+    // with a '#' are comments and are skipped.
+    while (fgets(strBuf, sizeof (strBuf), rdFp) != NULL) {
+        if ((strBuf[0] != '#') && (strBuf[0] != '\0')) {
+            char *comma = strchr(strBuf, ',');
+            if (comma != NULL) {
+                *comma = '\0';  // null-terminate tag string
+                setConfigValue(strBuf, (comma + 1), wrFp);
+            }
+        }
+    }
+
+    // Done with snmpd.conf!
+    fclose(wrFp);
+
+    // Done with the data file!
+    fclose(rdFp);
+
+    snmp_log(LOG_INFO, "%s: Restarting snmpd service to pick up the new config...\n", __func__);
+
     // Now restart the "snmpd" service to pick up the
     // config changes.
-    snprintf(command, sizeof (command), "systemctl restart snmpd");
-    if (system(command) == -1) {
+    if (system("systemctl restart snmpd") == -1) {
         int errNo = errno;
-        snmp_log(LOG_ERR, "%s: Failed to exec command \"%s\": %s (%d)\n", __func__, command, strerror(errNo), errNo);
+        snmp_log(LOG_ERR, "%s: Failed to exec \"systemctl restart snmpd\": %s (%d)\n", __func__, strerror(errNo), errNo);
         return -1;
     }
 
@@ -200,30 +246,33 @@ static int setOidValue(const char *oid, int value)
 }
 
 // Read the latest MIB object values from the data file
-static int readDataValues(const char *dataFile)
+static int procDataFile(const char *dataFile)
 {
     FILE *fp;
-    char lineBuf[256];
+    char strBuf[256];
 
+    // Open the dataFile in read-only mode
     if ((fp = fopen(dataFile, "r")) == NULL) {
         snmp_log(LOG_ERR, "%s: failed to open data file \"%s\"\n", __func__, dataFile);
+        return -1;
     }
 
     // Read one line at a time. Lines that start
     // with a '#' are comments and are skipped.
-    while (fgets(lineBuf, sizeof (lineBuf), fp) != NULL) {
-        if (lineBuf[0] != '#') {
-            char *comma = strchr(lineBuf, ',');
+    while (fgets(strBuf, sizeof (strBuf), fp) != NULL) {
+        if ((strBuf[0] != '#') && (strBuf[0] != '\0')) {
+            char *comma = strchr(strBuf, ',');
             if (comma != NULL) {
                 int value;
                 *comma = '\0';
                 if (sscanf((comma + 1), "%d", &value) == 1) {
-                    setOidValue(lineBuf, value);
+                    setOidValue(strBuf, value);
                 }
             }
         }
     }
 
+    // Done with the dataFile!
     fclose(fp);
 
     return 0;
@@ -234,23 +283,23 @@ static int readDataValues(const char *dataFile)
 // sensor.
 static void *mibUpdateTask(void *arg)
 {
-    const char *dataFile = arg;
+    const CmdArgs *cmdArgs = arg;
     const struct timespec pollPeriod = { .tv_sec = 1, .tv_nsec = 0 };
 
-    while (1) {
-        if (dataFile != NULL) {
+    while (true) {
+        if (cmdArgs->dataFile != NULL) {
             struct timeval now;
             struct tm brkDwnTime;
             static char tsBuf[32];  // YYYY-MM-DDTHH:MM:SS
             gettimeofday(&now, NULL);
             strftime(tsBuf, sizeof (tsBuf), "%Y-%m-%d %H:%M:%S", gmtime_r(&now.tv_sec, &brkDwnTime));    // %H means 24-hour time
-            snmp_log(LOG_INFO, "%s: Updating MIB data from %s at %s ...\n", __func__, dataFile, tsBuf);
-            readDataValues(dataFile);
+            snmp_log(LOG_INFO, "%s: Updating MIB data from %s at %s ...\n", __func__, cmdArgs->dataFile, tsBuf);
+            procDataFile(cmdArgs->dataFile);
+        }
 
-            // Config change?
-            if (snmpdConfigChange) {
-                procConfigChange();
-            }
+        // Config change?
+        if (snmpdConfigChange) {
+            procConfigFile(cmdArgs->configFile);
         }
 
         // Sleep until the next poll period
@@ -260,7 +309,7 @@ static void *mibUpdateTask(void *arg)
     return NULL;
 }
 
-int mibInit(const char *dataFile)
+int mibInit(const CmdArgs *cmdArgs)
 {
     pthread_t thread;
 
@@ -297,7 +346,7 @@ int mibInit(const char *dataFile)
     }
 
     // Start the MIB update task
-    if (pthread_create(&thread, NULL, mibUpdateTask, (void *) dataFile)) {
+    if (pthread_create(&thread, NULL, mibUpdateTask, (void *) cmdArgs)) {
         snmp_log(LOG_ERR, "Failed to create MIB update task!\n");
         return -1;
     }

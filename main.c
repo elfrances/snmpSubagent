@@ -4,6 +4,7 @@
 #include <signal.h>
 #include <stdbool.h>
 
+#include "args.h"
 #include "mib.h"
 
 static bool keepRunning = true;
@@ -20,22 +21,20 @@ static void stopSubagent(int a)
     keepRunning = false;
 }
 
-typedef struct CmdArgs {
-    bool daemon;
-    const char *dataFile;
-    bool syslog;
-} CmdArgs;
-
 static const char *help =
         "SYNTAX:\n"
         "    snmpSubagent [OPTIONS]\n"
         "\n"
         "OPTIONS:\n"
+        "    --config-file <path>\n"
+        "        Path to the CSV file used to generate the snmpd.conf\n"
+        "        file. The default value is: configFile.csv.\n"
         "    --daemon\n"
         "        Run in the background.\n"
         "    --data-file <path>\n"
         "        Path to the CSV file used to update the value of the\n"
-        "        SUBAGENT-EXAMPLE-MIB objects.\n"
+        "        SUBAGENT-EXAMPLE-MIB objects. The default value is: \n"
+        "        dataFile.csv.\n"
         "    --help\n"
         "        Show this help and exit.\n"
         "    --syslog\n"
@@ -53,7 +52,10 @@ static int parseCmdArgs(int argc, char *argv[], CmdArgs *cmdArgs)
 
         arg = argv[n];
 
-        if (strcmp(arg, "--daemon") == 0) {
+        if (strcmp(arg, "--config-file") == 0) {
+            val = argv[++n];
+            cmdArgs->configFile = strdup(val);
+        } else if (strcmp(arg, "--daemon") == 0) {
             cmdArgs->daemon = true;
         } else if (strcmp(arg, "--data-file") == 0) {
             val = argv[++n];
@@ -67,6 +69,14 @@ static int parseCmdArgs(int argc, char *argv[], CmdArgs *cmdArgs)
             fprintf(stderr, "ERROR: invalid argument \"%s\n\n", arg);
             return -1;
         }
+    }
+
+    if (cmdArgs->configFile == NULL) {
+        cmdArgs->configFile = "configFile.csv"; // default
+    }
+
+    if (cmdArgs->dataFile == NULL) {
+        cmdArgs->dataFile = "dataFile.csv";     // default
     }
 
     return 0;
@@ -105,7 +115,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    mibInit(cmdArgs.dataFile);
+    mibInit(&cmdArgs);
 
     init_snmp(snmpSubagent);
 
@@ -124,7 +134,7 @@ int main(int argc, char *argv[])
     signal(SIGTERM, stopSubagent);
     signal(SIGINT, stopSubagent);
 
-    snmp_log(LOG_INFO, "%s running...\n", snmpSubagent);
+    snmp_log(LOG_INFO, "%s running: configFile=%s dataFile=%s\n", snmpSubagent, cmdArgs.configFile, cmdArgs.dataFile);
 
     // Main work loop...
     while (keepRunning) {
