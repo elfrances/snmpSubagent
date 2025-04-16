@@ -132,17 +132,33 @@ static int sendHiTempAlarmTrap(const char *varOid)
 }
 
 bool snmpdConfigChange = false;
+static int snmpdConfigChangeCount = 0;
 
 static int procConfigChange(void)
 {
+    int id = ++snmpdConfigChangeCount % 2;
+    char command[256];
+
     snmp_log(LOG_INFO, "%s: Updating snmpd.conf and restarting snmpd service ...\n", __func__);
 
     snmpdConfigChange = false;
 
-    if (system("systemctl restart snmpd") == -1) {
+    // Copy the template file "snmpd.conf-N" to the "snmpd.conf"
+    // file used by "snmpd"
+    snprintf(command, sizeof (command), "cp -f /etc/snmp/snmpd.conf-%d /etc/snmp/snmpd.conf", id);
+    if (system(command) == -1) {
         int errNo = errno;
-        snmp_log(LOG_ERR, "%s: Failed to restart snmpd: %s (%d)\n", __func__, strerror(errNo), errNo);
+        snmp_log(LOG_ERR, "%s: Failed to exec command \"%s\": %s (%d)\n", __func__, command, strerror(errNo), errNo);
+        return -1;
+    }
 
+    // Now restart the "snmpd" service to pick up the
+    // config changes.
+    snprintf(command, sizeof (command), "systemctl restart snmpd");
+    if (system(command) == -1) {
+        int errNo = errno;
+        snmp_log(LOG_ERR, "%s: Failed to exec command \"%s\": %s (%d)\n", __func__, command, strerror(errNo), errNo);
+        return -1;
     }
 
     return 0;
