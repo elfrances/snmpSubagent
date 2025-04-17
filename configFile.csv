@@ -26,5 +26,5 @@ readOnlyCommunity,public
 readWriteCommunity,public
 
 # Have snmpd send traps to the NMS at 192.168.0.254
-trapReceiver,192.168.0.247:162 public
+trapReceiver,192.168.0.254:162 public
 
