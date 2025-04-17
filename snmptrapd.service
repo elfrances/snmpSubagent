@@ -1,0 +1,11 @@
+[Unit]
+Description=SNMP Trap Handler.
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/snmptrapd -Lsd -f
+ExecReload=/bin/kill -HUP $MAINPID
+
+[Install]
+WantedBy=multi-user.target
+
