@@ -85,44 +85,61 @@ static int hiTempThresholdCb(netsnmp_mib_handler *handler,
     return SNMP_ERR_NOERROR;
 }
 
-// acHiTempUnit OBJECT-TYPE
+// acHiTempAlarmUnit OBJECT-TYPE
 //     SYNTAX      Integer32
 //     MAX-ACCESS  accessible-for-notify
 //     STATUS      current
-//     DESCRIPTION "The A/C Unit thar raised a High Temperature alarm."
+//     DESCRIPTION "The A/C Unit that raised a High Temperature alarm."
 //     ::= { subagentExampleMIB 5 }
-static const oid acHiTempUnitOid[] = { 1, 3, 6, 1, 3, 9999, 5 };
+static const oid acHiTempAlarmUnitOid[] = { 1, 3, 6, 1, 3, 9999, 5 };
 
-// acHiTempAlarm NOTIFICATION-TYPE
+// acHiTempAlarmState OBJECT-TYPE
+//     SYNTAX      Integer32
+//     MAX-ACCESS  accessible-for-notify
+//     STATUS      current
+//     DESCRIPTION "Indicates the current state of the High Temperature
+//                  alarm: 0 means the alarm is inactive and 1 indicates
+//                  the alarm is active."
+//     ::= { subagentExampleMIB 6 }
+static const oid acHiTempAlarmStateOid[] = { 1, 3, 6, 1, 3, 9999, 6 };
+
+// acHiTempAlarmNotification NOTIFICATION-TYPE
 //     OBJECTS     { acHiTempUnit }
 //     STATUS      current
 //     DESCRIPTION "Trap to notify a High Temperature alarm on one of
 //                  the A/C Units."
-//     ::= { subagentExampleMIB 6 }
-static const oid acHiTempAlarmOid[] = { 1, 3, 6, 1, 3, 9999, 6 };
+//     ::= { subagentExampleMIB 7 }
+static const oid acHiTempAlarmNotificationOid[] = { 1, 3, 6, 1, 3, 9999, 7 };
 
 static int sendHiTempAlarmTrap(const char *varOid)
 {
     netsnmp_variable_list *varList = NULL;
     const oid snmpTrapOid[] = { 1, 3, 6, 1, 6, 3, 1, 1, 4, 1, 0 };
     int acUnit = 0;
+    int alarmState = 1;
 
     if (sscanf(varOid, "ac%dTemp", &acUnit) != 1) {
         snmp_log(LOG_ERR, "%s: Invalid A/C unit: %s\n", __func__, varOid);
         return -1;
     }
 
-    // Add snmpTrapOID = acHiTempAlarm
+    // Add varbind: snmpTrapOID = acHiTempAlarmNotificationOid
     snmp_varlist_add_variable(&varList,
             snmpTrapOid, OID_LENGTH(snmpTrapOid),
             ASN_OBJECT_ID,
-            acHiTempAlarmOid, OID_LENGTH(acHiTempAlarmOid) * sizeof (oid));
+            acHiTempAlarmNotificationOid, OID_LENGTH(acHiTempAlarmNotificationOid) * sizeof (oid));
 
-    // Add acHiTempUnit = acUnit
+    // Add varbind: acHiTempAlarmUnit = acUnit
     snmp_varlist_add_variable(&varList,
-            acHiTempUnitOid, OID_LENGTH(acHiTempUnitOid),
+            acHiTempAlarmUnitOid, OID_LENGTH(acHiTempAlarmUnitOid),
             ASN_INTEGER,
             &acUnit, sizeof (acUnit));
+
+    // Add varbind: acHiTempAlarmState = alarmState
+    snmp_varlist_add_variable(&varList,
+            acHiTempAlarmStateOid, OID_LENGTH(acHiTempAlarmStateOid),
+            ASN_INTEGER,
+            &alarmState, sizeof (alarmState));
 
     send_v2trap(varList);
 
