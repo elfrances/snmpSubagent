@@ -4,7 +4,8 @@ After=snmpd.service
 
 [Service]
 Type=simple
-ExecStart=/home/mmourier/GitHub/snmpSubagent/snmpSubagent --data-file /home/mmourier/GitHub/snmpSubagent/dataFile.csv
+WorkingDirectory=/home/mmourier/GitHub/snmpSubagent
+ExecStart=/home/mmourier/GitHub/snmpSubagent/snmpSubagent
 ExecReload=/bin/kill -HUP $MAINPID
 
 [Install]

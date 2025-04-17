@@ -11,7 +11,9 @@
 #   sysContact         | Name, phone, email of the contact person.
 #   sysLocation        | Physical location of the agent.
 #
-# Column B indicates the value of the attribute defined in column A.
+# Column B indicates the value of the attribute defined 
+# in column A, using the exact same syntax defined in
+# snmpd.conf(5).
 
 # Have snmpd listen on the default UDP port 161 on any
 # of the available network interfaces.
@@ -24,5 +26,5 @@ readOnlyCommunity,public
 readWriteCommunity,public
 
 # Have snmpd send traps to the NMS at 192.168.0.254
-trapReceiver,192.168.0.169:162 public
+trapReceiver,192.168.0.247:162 public
 
