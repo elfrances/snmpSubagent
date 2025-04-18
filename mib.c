@@ -51,7 +51,7 @@ static int ac3Temp = 0;
 //     DEFVAL      { 28 }
 //     ::= { subagentExampleMIB 4 }
 static const oid loTempThresholdOid[] = { 1, 3, 6, 1, 3, 9999, 4, 0 };
-static long int loTempThreshold = 28;
+static long loTempThreshold = 28;
 
 // hiTempThreshold OBJECT-TYPE
 //     SYNTAX      Integer32
@@ -62,7 +62,7 @@ static long int loTempThreshold = 28;
 //     DEFVAL      { 30 }
 //     ::= { subagentExampleMIB 4 }
 static const oid hiTempThresholdOid[] = { 1, 3, 6, 1, 3, 9999, 5, 0 };
-static long int hiTempThreshold = 30;
+static long hiTempThreshold = 30;
 
 // acHiTempAlarmUnit OBJECT-TYPE
 //     SYNTAX      Integer32
@@ -311,38 +311,6 @@ static int setReadOnlyValue(const char *varName, int value)
     snmp_log(LOG_WARNING, "%s: Unsupported MIB object \"%s\" !\n", __func__, varName);
 
     return -1;
-
-    int *var = NULL;
-    bool acTemp = false;
-
-    if (strcmp(varName, "ac1Temp") == 0) {
-        var = &ac1Temp;
-        acTemp = true;
-    } else if (strcmp(varName, "ac2Temp") == 0) {
-        var = &ac2Temp;
-        acTemp = true;
-    } else if (strcmp(varName, "ac3Temp") == 0) {
-        var = &ac3Temp;
-        acTemp = true;
-    } else {
-        return -1;
-    }
-
-    if ((var != NULL) && (value != *var)) {
-        snmp_log(LOG_INFO, "%s: oid=%s oldValue=%d newValue=%d\n", __func__, varName, *var, value);
-
-        // Update the corresponding MIB variable
-        *var = value;
-
-        // If this is an ac1Temp-ac3Temp object, do we
-        // need to send a hiTempAlarm trap?
-        if (acTemp && (value > hiTempThreshold)) {
-            snmp_log(LOG_INFO, "%s: oid=%s newValue=%d is greater than hiTempThreshold=%ld !\n", __func__, varName, value, hiTempThreshold);
-            sendHiTempAlarmTrap(varName);
-        }
-    }
-
-    return 0;
 }
 
 // Read the latest MIB object values from the data file
