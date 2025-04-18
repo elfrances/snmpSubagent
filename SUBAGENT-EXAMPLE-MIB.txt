@@ -46,7 +46,8 @@ loTempThreshold OBJECT-TYPE
     MAX-ACCESS  read-write
     STATUS      current
     DESCRIPTION "The temperature value (in degrees Celsius) below
-                 which to clear an A/C Unit High Temperature alarm."
+                 which to clear an A/C Unit High Temperature alarm.
+                 This value MUST be lower than hiTempThreshold."
     DEFVAL		{ 28 }
     ::= { subagentExampleMIB 4 }
     
@@ -55,7 +56,8 @@ hiTempThreshold OBJECT-TYPE
     MAX-ACCESS  read-write
     STATUS      current
     DESCRIPTION "The temperature value (in degrees Celsius) above
-                 which to raise an A/C Unit High Temperature alarm."
+                 which to raise an A/C Unit High Temperature alarm.
+                 This value MUST be higher than loTempThreshold."
     DEFVAL		{ 30 }
     ::= { subagentExampleMIB 5 }
     
