@@ -23,7 +23,7 @@ agentAddress,udp:161
 readOnlyCommunity,public
 
 # Use the default "private" read-write community
-readWriteCommunity,public
+readWriteCommunity,private
 
 # Have snmpd send traps to the NMS at 192.168.0.254
 trapReceiver,192.168.0.254:162 public
