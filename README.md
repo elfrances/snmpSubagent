@@ -85,25 +85,25 @@ snmpget -v 2c -c public localhost SUBAGENT-EXAMPLE-MIB::ac2Temp.0
 SUBAGENT-EXAMPLE-MIB::ac2Temp.0 = INTEGER: 22
 ```
 
-Read the read-write Interger32 MIB variable "hiTempAlarm":
+Read the read-write Interger32 MIB variable "hiTempThreshold":
 
 ```
-snmpget -v 2c -c public localhost SUBAGENT-EXAMPLE-MIB::hiTempAlarm.0
-SUBAGENT-EXAMPLE-MIB::hiTempAlarm.0 = INTEGER: 30
+snmpget -v 2c -c public localhost SUBAGENT-EXAMPLE-MIB::hiTempThreshold.0
+SUBAGENT-EXAMPLE-MIB::hiTempThreshold.0 = INTEGER: 30
 ```
 
-Write the value 27 to the read-write Interger32 MIB variable "hiTempAlarm":
+Write the value 27 to the read-write Interger32 MIB variable "hiTempThreshold":
 
 ```
-snmpset -v 2c -c private localhost SUBAGENT-EXAMPLE-MIB::hiTempAlarm.0 i 27
-SUBAGENT-EXAMPLE-MIB::hiTempAlarm.0 = INTEGER: 27
+snmpset -v 2c -c private localhost SUBAGENT-EXAMPLE-MIB::hiTempThreshold.0 i 27
+SUBAGENT-EXAMPLE-MIB::hiTempThreshold.0 = INTEGER: 27
 ```
 
-Read the read-write Interger32 MIB variable "hiTempAlarm" to verify the value written:
+Read the read-write Interger32 MIB variable "hiTempThreshold" to verify the value written:
 
 ```
-snmpget -v 2c -c public localhost SUBAGENT-EXAMPLE-MIB::hiTempAlarm.0
-SUBAGENT-EXAMPLE-MIB::hiTempAlarm.0 = INTEGER: 1234
+snmpget -v 2c -c public localhost SUBAGENT-EXAMPLE-MIB::hiTempThreshold.0
+SUBAGENT-EXAMPLE-MIB::hiTempThreshold.0 = INTEGER: 1234
 ```
 
 # Control the snmpSubagent using systemd

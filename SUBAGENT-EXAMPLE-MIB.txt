@@ -41,6 +41,15 @@ ac3Temp OBJECT-TYPE
                  Unit #3 temperature sensor."
     ::= { subagentExampleMIB 3 }
 
+loTempThreshold OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "The temperature value (in degrees Celsius) below
+                 which to clear an A/C Unit High Temperature alarm."
+    DEFVAL		{ 28 }
+    ::= { subagentExampleMIB 4 }
+    
 hiTempThreshold OBJECT-TYPE
     SYNTAX      Integer32
     MAX-ACCESS  read-write
@@ -48,14 +57,14 @@ hiTempThreshold OBJECT-TYPE
     DESCRIPTION "The temperature value (in degrees Celsius) above
                  which to raise an A/C Unit High Temperature alarm."
     DEFVAL		{ 30 }
-    ::= { subagentExampleMIB 4 }
+    ::= { subagentExampleMIB 5 }
     
 acHiTempAlarmUnit OBJECT-TYPE
     SYNTAX      Integer32
     MAX-ACCESS  accessible-for-notify
     STATUS      current
     DESCRIPTION "The A/C Unit that raised a High Temperature alarm."
-    ::= { subagentExampleMIB 5 }
+    ::= { subagentExampleMIB 6 }
     
 acHiTempAlarmState OBJECT-TYPE
     SYNTAX      Integer32
@@ -64,13 +73,13 @@ acHiTempAlarmState OBJECT-TYPE
     DESCRIPTION "Indicates the current state of the High Temperature
                  alarm: 0 means the alarm is inactive and 1 indicates
                  the alarm is active."
-    ::= { subagentExampleMIB 6 }
+    ::= { subagentExampleMIB 7 }
     
 acHiTempAlarmNotification NOTIFICATION-TYPE
     OBJECTS     { acHiTempAlarmUnit, acHiTempAlarmState }
     STATUS      current
     DESCRIPTION	"Trap to notify a High Temperature alarm on one of
                  the A/C Units."
-    ::= { subagentExampleMIB 7 }
+    ::= { subagentExampleMIB 8 }
 
 END

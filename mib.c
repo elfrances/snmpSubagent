@@ -66,6 +66,27 @@ static int ac3TempCb(netsnmp_mib_handler *handler,
     return SNMP_ERR_NOERROR;
 }
 
+// loTempThreshold OBJECT-TYPE
+//     SYNTAX      Integer32
+//     MAX-ACCESS  read-write
+//     STATUS      current
+//     DESCRIPTION "The temperature value (in degrees Celsius) below
+//                  which to clear an A/C Unit High Temperature alarm."
+//     DEFVAL      { 28 }
+//     ::= { subagentExampleMIB 4 }
+static const oid loTempThresholdOid[] = { 1, 3, 6, 1, 3, 9999, 4, 0 };
+static int loTempThreshold = 28;
+static int loTempThresholdCb(netsnmp_mib_handler *handler,
+                     netsnmp_handler_registration *reginfo,
+                     netsnmp_agent_request_info *reqinfo,
+                     netsnmp_request_info *requests)
+{
+    //netsnmp_variable_list *varBind = requests->requestvb;
+    //snmp_log(LOG_INFO, "%s: val=%ld\n", __func__, *varBind->val.integer);
+    snmp_log(LOG_INFO, "%s: \n", __func__);
+    return SNMP_ERR_NOERROR;
+}
+
 // hiTempThreshold OBJECT-TYPE
 //     SYNTAX      Integer32
 //     MAX-ACCESS  read-write
@@ -74,13 +95,15 @@ static int ac3TempCb(netsnmp_mib_handler *handler,
 //                  which to raise an A/C Unit High Temperature alarm."
 //     DEFVAL      { 30 }
 //     ::= { subagentExampleMIB 4 }
-static const oid hiTempThresholdOid[] = { 1, 3, 6, 1, 3, 9999, 4, 0 };
+static const oid hiTempThresholdOid[] = { 1, 3, 6, 1, 3, 9999, 5, 0 };
 static int hiTempThreshold = 30;
 static int hiTempThresholdCb(netsnmp_mib_handler *handler,
                      netsnmp_handler_registration *reginfo,
                      netsnmp_agent_request_info *reqinfo,
                      netsnmp_request_info *requests)
 {
+    //netsnmp_variable_list *varBind = requests->requestvb;
+    //snmp_log(LOG_INFO, "%s: val=%ld\n", __func__, *varBind->val.integer);
     snmp_log(LOG_INFO, "%s: \n", __func__);
     return SNMP_ERR_NOERROR;
 }
@@ -91,7 +114,7 @@ static int hiTempThresholdCb(netsnmp_mib_handler *handler,
 //     STATUS      current
 //     DESCRIPTION "The A/C Unit that raised a High Temperature alarm."
 //     ::= { subagentExampleMIB 5 }
-static const oid acHiTempAlarmUnitOid[] = { 1, 3, 6, 1, 3, 9999, 5 };
+static const oid acHiTempAlarmUnitOid[] = { 1, 3, 6, 1, 3, 9999, 6 };
 
 // acHiTempAlarmState OBJECT-TYPE
 //     SYNTAX      Integer32
@@ -101,7 +124,8 @@ static const oid acHiTempAlarmUnitOid[] = { 1, 3, 6, 1, 3, 9999, 5 };
 //                  alarm: 0 means the alarm is inactive and 1 indicates
 //                  the alarm is active."
 //     ::= { subagentExampleMIB 6 }
-static const oid acHiTempAlarmStateOid[] = { 1, 3, 6, 1, 3, 9999, 6 };
+static const oid acHiTempAlarmStateOid[] = { 1, 3, 6, 1, 3, 9999, 7 };
+static int acHiTempAlarmState = 0;
 
 // acHiTempAlarmNotification NOTIFICATION-TYPE
 //     OBJECTS     { acHiTempUnit }
@@ -109,17 +133,38 @@ static const oid acHiTempAlarmStateOid[] = { 1, 3, 6, 1, 3, 9999, 6 };
 //     DESCRIPTION "Trap to notify a High Temperature alarm on one of
 //                  the A/C Units."
 //     ::= { subagentExampleMIB 7 }
-static const oid acHiTempAlarmNotificationOid[] = { 1, 3, 6, 1, 3, 9999, 7 };
+static const oid acHiTempAlarmNotificationOid[] = { 1, 3, 6, 1, 3, 9999, 8 };
 
-static int sendHiTempAlarmTrap(const char *varOid)
+
+typedef struct MibObj {
+    const char *varName;
+    const oid *varOid;
+    size_t varOidLen;
+    int *varValue;
+    bool readOnly;
+    Netsnmp_Node_Handler *varCbFunc;
+} MibObj;
+
+// This table contains one entry for each read-only or
+// read-write object in the MIB.
+static MibObj mibObjTbl[] = {
+        { "ac1Temp", ac1TempOid, OID_LENGTH(ac1TempOid), &ac1Temp, true, ac1TempCb },
+        { "ac2Temp", ac2TempOid, OID_LENGTH(ac2TempOid), &ac2Temp, true, ac2TempCb },
+        { "ac3Temp", ac3TempOid, OID_LENGTH(ac3TempOid), &ac3Temp, true, ac3TempCb },
+        { "loTempThreshold", loTempThresholdOid, OID_LENGTH(loTempThresholdOid), &loTempThreshold, false, loTempThresholdCb },
+        { "hiTempThreshold", hiTempThresholdOid, OID_LENGTH(hiTempThresholdOid), &hiTempThreshold, false, hiTempThresholdCb },
+        { NULL, NULL, 0, NULL, NULL }
+};
+
+static int sendHiTempAlarmTrap(const char *varName)
 {
     netsnmp_variable_list *varList = NULL;
     const oid snmpTrapOid[] = { 1, 3, 6, 1, 6, 3, 1, 1, 4, 1, 0 };
     int acUnit = 0;
-    int alarmState = 1;
 
-    if (sscanf(varOid, "ac%dTemp", &acUnit) != 1) {
-        snmp_log(LOG_ERR, "%s: Invalid A/C unit: %s\n", __func__, varOid);
+    // Extract the A/C unit number
+    if (sscanf(varName, "ac%dTemp", &acUnit) != 1) {
+        snmp_log(LOG_ERR, "%s: Invalid A/C unit: %s\n", __func__, varName);
         return -1;
     }
 
@@ -139,7 +184,9 @@ static int sendHiTempAlarmTrap(const char *varOid)
     snmp_varlist_add_variable(&varList,
             acHiTempAlarmStateOid, OID_LENGTH(acHiTempAlarmStateOid),
             ASN_INTEGER,
-            &alarmState, sizeof (alarmState));
+            &acHiTempAlarmState, sizeof (acHiTempAlarmState));
+
+    snmp_log(LOG_ERR, "%s: Sending trap for: %s\n", __func__, varName);
 
     send_v2trap(varList);
 
@@ -229,18 +276,52 @@ static int procConfigFile(const char *configFile)
     return 0;
 }
 
-static int setOidValue(const char *oid, int value)
+static int setReadOnlyValue(const char *varName, int value)
 {
+    for (MibObj *mibObj = &mibObjTbl[0]; mibObj->varName != NULL; mibObj++) {
+        if (strcmp(varName, mibObj->varName) == 0) {
+            // Make sure it is a read-only object
+            if (!mibObj->readOnly) {
+                snmp_log(LOG_ERR, "%s: MIB object \"%s\" is not read-only !\n", __func__, varName);
+                return -1;
+            }
+
+            // Has the value changed?
+            if (value != *mibObj->varValue) {
+                // Yes! Update the value
+                snmp_log(LOG_INFO, "%s: varName=%s oldValue=%d newValue=%d\n", __func__, varName, *mibObj->varValue, value);
+                *mibObj->varValue = value;
+
+                // Do we need to send a hiTempAlarm trap?
+                if ((acHiTempAlarmState == 0) && (value > hiTempThreshold)) {
+                    snmp_log(LOG_INFO, "%s: varName=%s newValue=%d is greater than hiTempThreshold=%d !\n", __func__, varName, value, hiTempThreshold);
+                    acHiTempAlarmState = 1; // raise the alarm
+                    sendHiTempAlarmTrap(varName);
+                } else if ((acHiTempAlarmState == 1) && (value < loTempThreshold)) {
+                    snmp_log(LOG_INFO, "%s: varName=%s newValue=%d is lower than loTempThreshold=%d !\n", __func__, varName, value, loTempThreshold);
+                    acHiTempAlarmState = 0; // clear the alarm
+                    sendHiTempAlarmTrap(varName);
+                }
+            }
+
+            return 0;
+        }
+    }
+
+    snmp_log(LOG_WARNING, "%s: Unsupported MIB object \"%s\" !\n", __func__, varName);
+
+    return -1;
+
     int *var = NULL;
     bool acTemp = false;
 
-    if (strcmp(oid, "ac1Temp") == 0) {
+    if (strcmp(varName, "ac1Temp") == 0) {
         var = &ac1Temp;
         acTemp = true;
-    } else if (strcmp(oid, "ac2Temp") == 0) {
+    } else if (strcmp(varName, "ac2Temp") == 0) {
         var = &ac2Temp;
         acTemp = true;
-    } else if (strcmp(oid, "ac3Temp") == 0) {
+    } else if (strcmp(varName, "ac3Temp") == 0) {
         var = &ac3Temp;
         acTemp = true;
     } else {
@@ -248,7 +329,7 @@ static int setOidValue(const char *oid, int value)
     }
 
     if ((var != NULL) && (value != *var)) {
-        snmp_log(LOG_INFO, "%s: oid=%s oldValue=%d newValue=%d\n", __func__, oid, *var, value);
+        snmp_log(LOG_INFO, "%s: oid=%s oldValue=%d newValue=%d\n", __func__, varName, *var, value);
 
         // Update the corresponding MIB variable
         *var = value;
@@ -256,8 +337,8 @@ static int setOidValue(const char *oid, int value)
         // If this is an ac1Temp-ac3Temp object, do we
         // need to send a hiTempAlarm trap?
         if (acTemp && (value > hiTempThreshold)) {
-            snmp_log(LOG_INFO, "%s: oid=%s newValue=%d is greater than hiTempThreshold=%d !\n", __func__, oid, value, hiTempThreshold);
-            sendHiTempAlarmTrap(oid);
+            snmp_log(LOG_INFO, "%s: oid=%s newValue=%d is greater than hiTempThreshold=%d !\n", __func__, varName, value, hiTempThreshold);
+            sendHiTempAlarmTrap(varName);
         }
     }
 
@@ -285,7 +366,7 @@ static int procDataFile(const char *dataFile)
                 int value;
                 *comma = '\0';
                 if (sscanf((comma + 1), "%d", &value) == 1) {
-                    setOidValue(strBuf, value);
+                    setReadOnlyValue(strBuf, value);
                 }
             }
         }
@@ -334,36 +415,31 @@ int mibInit(const CmdArgs *cmdArgs)
 {
     pthread_t thread;
 
-    // Register ac1Temp handler
-    if (netsnmp_register_read_only_int_instance("ac1Temp",
-                                                ac1TempOid, OID_LENGTH(ac1TempOid),
-                                                &ac1Temp, ac1TempCb) != 0) {
-        snmp_log(LOG_ERR, "Failed to register ac1Temp!\n");
-        return -1;
-    }
+    // Register with the Master Agent each of the Integer32
+    // read-only and read-write objects in our MIB...
+    for (MibObj *mibObj = &mibObjTbl[0]; mibObj->varName != NULL; mibObj++) {
+        int s;
 
-    // Register ac2Temp handler
-    if (netsnmp_register_read_only_int_instance("ac2Temp",
-                                                ac2TempOid, OID_LENGTH(ac2TempOid),
-                                                &ac2Temp, ac2TempCb) != 0) {
-        snmp_log(LOG_ERR, "Failed to register ac2Temp!\n");
-        return -1;
-    }
+        snmp_log(LOG_INFO, "Registering object: varName=\"%s\" readOnly=%d ...\n", mibObj->varName, mibObj->readOnly);
 
-    // Register ac3Temp handler
-    if (netsnmp_register_read_only_int_instance("ac3Temp",
-                                                ac3TempOid, OID_LENGTH(ac3TempOid),
-                                                &ac3Temp, ac3TempCb) != 0) {
-        snmp_log(LOG_ERR, "Failed to register ac3Temp!\n");
-        return -1;
-    }
+        if (mibObj->readOnly) {
+            s = netsnmp_register_read_only_int_instance(mibObj->varName,
+                                                        mibObj->varOid,
+                                                        mibObj->varOidLen,
+                                                        mibObj->varValue,
+                                                        mibObj->varCbFunc);
+        } else {
+            s = netsnmp_register_int_instance(mibObj->varName,
+                                              mibObj->varOid,
+                                              mibObj->varOidLen,
+                                              mibObj->varValue,
+                                              mibObj->varCbFunc);
+        }
 
-    // Register hiTempAlarm handler
-    if (netsnmp_register_int_instance("hiTempThreshold",
-                                       hiTempThresholdOid, OID_LENGTH(hiTempThresholdOid),
-                                       &hiTempThreshold, hiTempThresholdCb) != 0) {
-        snmp_log(LOG_ERR, "Failed to register hiTempThreshold!\n");
-        return -1;
+        if (s != 0) {
+            snmp_log(LOG_ERR, "Failed to register \"%s\" !\n", mibObj->varName);
+            return -1;
+        }
     }
 
     // Start the MIB update task
