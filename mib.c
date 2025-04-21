@@ -346,21 +346,73 @@ static int procDataFile(const char *dataFile)
     return 0;
 }
 
+static const __syscall_slong_t oneBillion = 1000000000; // 10^9
+
+// Normalize a timespec value
+static __inline__ void tvNorm(struct timespec *t)
+{
+    if (t->tv_nsec >= oneBillion) {
+        t->tv_sec += (t->tv_nsec / oneBillion);
+        t->tv_nsec = (t->tv_nsec % oneBillion);
+    }
+}
+
+// Subtract two timespec values: result = x - y
+static void tvSub(struct timespec *result, const struct timespec *x, const struct timespec *y)
+{
+    struct timespec X = *x;
+    struct timespec Y = *y;
+
+    tvNorm(&X);
+    tvNorm(&Y);
+
+    if (X.tv_nsec < Y.tv_nsec) {
+        X.tv_sec -= 1;
+        X.tv_nsec += oneBillion;
+    }
+    result->tv_sec = X.tv_sec - Y.tv_sec;
+    result->tv_nsec = X.tv_nsec - Y.tv_nsec;
+}
+
+// Compare two timespec values
+static int tvCmp(const struct timespec *x, const struct timespec *y)
+{
+    struct timespec X = *x;
+    struct timespec Y = *y;
+
+    tvNorm(&X);
+    tvNorm(&Y);
+
+    if (x->tv_sec > y->tv_sec) {
+        return 1;
+    } else if (x->tv_sec < y->tv_sec) {
+        return -1;
+    } else if (x->tv_nsec > y->tv_nsec) {
+        return 1;
+    } else if (x->tv_nsec < y->tv_nsec) {
+        return -1;
+    }
+
+    return 0;
+}
+
+
 // This task is used to update the values of the MIB objects; e.g.
 // as when the value is obtained from reading an environmental
 // sensor.
 static void *mibUpdateTask(void *arg)
 {
     const CmdArgs *cmdArgs = arg;
-    const struct timespec pollPeriod = { .tv_sec = 1, .tv_nsec = 0 };
 
     while (true) {
-        struct timeval now;
+        const struct timespec pollTime = { .tv_sec = 1, .tv_nsec = 0 };
+        struct timespec startTime, endTime, deltaTime;
         struct tm brkDwnTime;
         static char tsBuf[32];  // YYYY-MM-DDTHH:MM:SS
 
-        gettimeofday(&now, NULL);
-        strftime(tsBuf, sizeof (tsBuf), "%Y-%m-%d %H:%M:%S", gmtime_r(&now.tv_sec, &brkDwnTime));    // %H means 24-hour time
+        clock_gettime(CLOCK_REALTIME, &startTime);
+
+        strftime(tsBuf, sizeof (tsBuf), "%Y-%m-%d %H:%M:%S", gmtime_r(&startTime.tv_sec, &brkDwnTime));    // %H means 24-hour time
 
         snmp_log(LOG_INFO, "%s: Updating MIB data from %s at %s ...\n", __func__, cmdArgs->dataFile, tsBuf);
 
@@ -372,8 +424,24 @@ static void *mibUpdateTask(void *arg)
             procConfigFile(cmdArgs->configFile);
         }
 
-        // Sleep until the next poll period
-        nanosleep(&pollPeriod, NULL);
+        clock_gettime(CLOCK_REALTIME, &endTime);
+
+        // Calculate the time we spent processing
+        // all the events in this pass of the work
+        // loop...
+        tvSub(&deltaTime, &endTime, &startTime);
+
+        // Figure out how long to sleep to achieve
+        // the desired poll period. If deltaTime is
+        // greater or equal to pollTime, there's no
+        // need to sleep.
+        if (tvCmp(&deltaTime, &pollTime) < 0) {
+            // Sleep until the next poll period
+            struct timespec sleepTime;
+            tvSub(&sleepTime, &pollTime, &deltaTime);
+            //snmp_log(LOG_INFO, "%s: sleepTime=%ld.%09ld\n", __func__, sleepTime.tv_sec, sleepTime.tv_nsec);
+            nanosleep(&sleepTime, NULL);
+        }
     }
 
     return NULL;

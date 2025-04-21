@@ -19,7 +19,11 @@ sudo systemctl daemon-reload
 sudo systemctl start snmptrapd
 
 # If you want the snmptrapd service to start
-# automatically when the system boots, enable
-# it...
+# automatically when the system boots, then
+# enable it.
 sudo systemctl enable snmptrapd
+
+# Reboot the node to come back up with a fresh
+# system...
+sudo reboot now
 
