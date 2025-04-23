@@ -7,7 +7,7 @@
 #   agentAddress       | Listening IP address and port
 #   readOnlyCommunity  | v2c community string to access read-only MIB objects.
 #   readWriteCommunity | v2c community string to access read-write MIB objects.
-#   trapReceiver       | IP address and port of a trap receiver.
+#   trapReceiver       | IP address, port, and community of a trap receiver.
 #   sysContact         | Name, phone, email of the contact person.
 #   sysLocation        | Physical location of the agent.
 #
@@ -27,4 +27,8 @@ readWriteCommunity,private
 
 # Have snmpd send traps to the NMS at 192.168.0.254
 trapReceiver,192.168.0.254:162 public
+
+# Set the contact info
+sysContact,Wilie Coyote <wile@acme.com>
+sysLocation,Acme Corporation HQ
 
