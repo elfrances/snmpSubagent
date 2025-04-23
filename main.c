@@ -102,6 +102,24 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+    // Catch USR1 signal, used to indicate a change in
+    // the snmpd.conf file...
+    if (signal(SIGUSR1, sigUsr1Handler) == SIG_ERR) {
+        snmp_log(LOG_ERR, "Failed to set SIGUSR1 handler!\n");
+        return -1;
+    }
+
+    // Catch TERMINATE and INTERRUPR signals, which are
+    // used to gracefully exit the snmpSubagent...
+    if (signal(SIGTERM, stopSubagent) == SIG_ERR) {
+        snmp_log(LOG_ERR, "Failed to set SIGTERM handler!\n");
+        return -1;
+    }
+    if (signal(SIGINT, stopSubagent) == SIG_ERR) {
+        snmp_log(LOG_ERR, "Failed to set SIGINT handler!\n");
+        return -1;
+    }
+
     if (cmdArgs.daemon) {
         // Run in the background
         if (netsnmp_daemonize(true, !cmdArgs.syslog) != 0) {
@@ -124,15 +142,6 @@ int main(int argc, char *argv[])
     if (netsnmp_ds_set_int(NETSNMP_DS_APPLICATION_ID, NETSNMP_DS_AGENT_AGENTX_PING_INTERVAL, 5) != SNMPERR_SUCCESS) {
         snmp_log(LOG_WARNING, "Can't set AGENTX_PING_INTERVAL!\n");
     }
-
-    // Catch USR1 signal, used to indicate a change
-    // in the snmpd.conf file...
-    signal(SIGUSR1, sigUsr1Handler);
-
-    // Catch TERMINATE and INTERRUPR signals, used
-    // to gracefully exit the snmpSubagent...
-    signal(SIGTERM, stopSubagent);
-    signal(SIGINT, stopSubagent);
 
     snmp_log(LOG_INFO, "%s running: configFile=%s dataFile=%s\n", snmpSubagent, cmdArgs.configFile, cmdArgs.dataFile);
 
